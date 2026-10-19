@@ -1,0 +1,950 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Flappy Bird: Let money talk</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Outfit:wght@400;600;800;900&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    * {
+      user-select: none;
+      -webkit-user-select: none;
+      -webkit-tap-highlight-color: transparent;
+      touch-action: manipulation;
+    }
+    body {
+      background: radial-gradient(circle at center, #0f172a, #020617);
+      font-family: 'Outfit', sans-serif;
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+    }
+    .pixel-font {
+      font-family: 'Press Start 2P', monospace;
+    }
+    #game-container {
+      position: relative;
+      width: 100%;
+      max-width: 440px;
+      height: 100vh;
+      max-height: 740px;
+      border-radius: 20px;
+      overflow: hidden;
+      box-shadow: 0 25px 60px -10px rgba(0, 0, 0, 0.9), 0 0 35px rgba(234, 179, 8, 0.25);
+    }
+    @media (max-width: 480px) {
+      #game-container {
+        max-height: 100vh;
+        border-radius: 0;
+      }
+    }
+    canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+      image-rendering: pixelated;
+    }
+    @keyframes pulseGlow {
+      0%, 100% {
+        box-shadow: 0 0 20px rgba(250, 204, 21, 0.6), 0 8px 0 #b45309;
+        transform: scale(1);
+      }
+      50% {
+        box-shadow: 0 0 35px rgba(250, 204, 21, 0.95), 0 8px 0 #b45309;
+        transform: scale(1.02);
+      }
+    }
+    .btn-pay-pulse {
+      animation: pulseGlow 1.4s infinite ease-in-out;
+    }
+    @keyframes shakeModal {
+      0%, 100% { transform: translate(0, 0); }
+      20% { transform: translate(-8px, 4px); }
+      40% { transform: translate(8px, -4px); }
+      60% { transform: translate(-5px, -3px); }
+      80% { transform: translate(5px, 2px); }
+    }
+    .shake-anim {
+      animation: shakeModal 0.4s ease-in-out;
+    }
+    #modalBox > div:first-child {
+      z-index: 60;
+    }
+    .text-outline {
+      text-shadow: 
+        -2px -2px 0 #000,  
+         2px -2px 0 #000,
+        -2px  2px 0 #000,
+         2px  2px 0 #000,
+         0 4px 0 #000;
+    }
+  </style>
+</head>
+<body class="p-0 sm:p-4">
+
+  <div id="game-container" class="relative bg-slate-900 border-2 sm:border-4 border-yellow-500/30">
+    <canvas id="gameCanvas"></canvas>
+
+    <button id="soundToggleBtn" class="absolute top-4 right-4 z-20 bg-slate-900/80 hover:bg-slate-800 text-yellow-400 border border-yellow-500/40 p-2.5 rounded-xl shadow-lg transition-transform active:scale-95 cursor-pointer" title="Toggle Sound">
+      <svg id="soundIconOn" class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+        <path d="M14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77zm-2.5-1.23L6.5 6H2v12h4.5l5 4V2zM14 8.83v6.34c1.24-.62 2-1.92 2-3.17s-.76-2.55-2-3.17z"/>
+      </svg>
+      <svg id="soundIconOff" class="w-5 h-5 hidden text-slate-500" fill="currentColor" viewBox="0 0 24 24">
+        <path d="M16.5 12c0-1.77-1.02-3.29-2.5-4.03v2.21l2.45 2.45c.03-.2.05-.41.05-.63zm2.5 0c0 .94-.2 1.82-.54 2.64l1.51 1.51C20.63 14.91 21 13.5 21 12c0-4.28-2.99-7.86-7-8.77v2.06c2.89.86 5 3.54 5 6.71zM4.27 3L3 4.27 7.73 9H3v6h4l5 5v-6.73l4.25 4.25c-.67.52-1.42.93-2.25 1.18v2.06c1.38-.31 2.63-.95 3.69-1.81L19.73 21 21 19.73 4.27 3zM12 4L9.91 6.09 12 8.18V4z"/>
+      </svg>
+    </button>
+
+    <div id="startOverlay" class="absolute inset-0 z-10 flex flex-col items-center justify-center p-6 text-center bg-black/30 pointer-events-none">
+      <div id="startTitle" class="pixel-font text-white text-2xl mb-4 tracking-wider text-outline animate-bounce">
+        FLAPPY Bird: Let money talk
+      </div>
+      <div class="bg-black/60 border border-yellow-400/50 backdrop-blur-md px-5 py-3 rounded-2xl shadow-xl">
+        <p class="text-yellow-300 text-sm font-semibold mb-1">🎮 SPACEBAR / TAP TO FLAP</p>
+        <p id="startHint" class="text-xs text-slate-300">Don't hit the pipes !</p>
+      </div>
+    </div>
+
+    <div id="payModal" class="absolute inset-0 z-40 bg-black/85 backdrop-blur-md hidden flex flex-col justify-end sm:justify-center p-4 overflow-y-auto">
+      <div id="modalBox" class="bg-gradient-to-b from-slate-900 via-slate-900 to-amber-950/40 border-2 border-yellow-400 rounded-3xl p-5 shadow-2xl relative text-white max-w-sm mx-auto w-full">
+        
+        <div class="absolute -top-4 left-1/2 -translate-x-1/2 bg-gradient-to-r from-red-600 to-rose-600 text-white font-black text-[11px] px-4 py-1 rounded-full uppercase tracking-widest border border-red-300 shadow-md whitespace-nowrap animate-pulse">
+          REALITY MESSAGES
+        </div>
+
+        <div class="text-center mt-2 mb-2">
+          <h2 class="pixel-font text-red-500 text-base leading-tight mb-1 text-stroke">YOU DIED!</h2>
+          <p class="text-xs text-slate-300 font-semibold">Your bird crashed into a capitalist pipe!</p>
+        </div>
+
+        <div class="bg-gradient-to-r from-yellow-500/20 via-amber-500/30 to-yellow-500/20 border border-yellow-400/60 rounded-2xl p-3 my-2 text-center relative overflow-hidden">
+          <div class="text-[10px] uppercase font-bold text-yellow-300 tracking-wider">REVIVE PASS PRO MAX</div>
+          <div class="text-3xl font-black text-yellow-400 tracking-tight leading-none my-1 flex items-center justify-center gap-1">
+            <span class="text-lg line-through text-slate-500 font-medium">$9,999</span>
+            <span>$999.00</span>
+            <span class="text-[11px] font-bold text-slate-300">USD</span>
+          </div>
+          <div class="text-[9px] text-emerald-400 font-bold bg-emerald-950/70 border border-emerald-500/30 rounded-md py-0.5 px-2 inline-block">
+             90% OFF - BECAUSE WE KNOW THAT UR F*CKIN POOR 
+          </div>
+        </div>
+
+        <div class="space-y-1.5 my-3 text-xs">
+          <div class="flex items-center gap-2 text-slate-200">
+            <span class="text-emerald-400 font-bold text-sm">✔</span>
+            <span>Instant revive right where you died</span>
+          </div>
+          <div class="flex items-center gap-2 text-slate-200">
+            <span class="text-emerald-400 font-bold text-sm">✔</span>
+            <span>2.5s Rich invincibility shield</span>
+          </div>
+          <div class="flex items-center gap-2 text-slate-200">
+            <span class="text-emerald-400 font-bold text-sm">✔</span>
+            <span>Funds the dev's luxurious lifestyle</span>
+          </div>
+          <div class="flex items-center gap-2 text-slate-200">
+            <span class="text-amber-400 font-bold text-sm">★</span>
+            <span class="text-[11px] text-amber-300 font-semibold">99.9% of real gamers purchase this</span>
+          </div>
+        </div>
+
+        <div class="space-y-2 mt-4">
+          <button id="btnPayCard" class="w-full btn-pay-pulse bg-gradient-to-r from-yellow-400 via-amber-400 to-yellow-500 hover:from-yellow-300 hover:to-amber-400 text-slate-950 font-black py-3.5 px-4 rounded-xl text-xs sm:text-sm tracking-wide uppercase flex items-center justify-center gap-2 border-b-4 border-amber-700 active:translate-y-1 transition-all cursor-pointer">
+            <span>PAY $999.00 USD</span>
+          </button>
+
+          <div class="grid grid-cols-2 gap-2 text-[10px]">
+            <button id="btnPayBtc" class="bg-slate-800 hover:bg-slate-700 border border-slate-700 text-yellow-300 p-2 rounded-lg font-bold flex items-center justify-center gap-1 active:scale-95 transition-transform cursor-pointer">
+              <span>🪙 Pay 0.015 BTC</span>
+            </button>
+            <button id="btnPayBanana" class="bg-slate-800 hover:bg-slate-700 border border-slate-700 text-yellow-300 p-2 rounded-lg font-bold flex items-center justify-center gap-1 active:scale-95 transition-transform cursor-pointer">
+              <span>🍌 Trade 1 Banana</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="text-center mt-3 pt-2 border-t border-slate-800/80">
+          <button id="btnRestartCoward" class="text-[10px] text-slate-500 hover:text-slate-300 underline transition-colors cursor-pointer">
+            I AM GAY, so i dont pay and restart the game
+          </button>
+        </div>
+
+        <div id="fakeStatus" class="hidden absolute inset-0 bg-slate-950/95 rounded-3xl p-6 flex flex-col items-center justify-center text-center z-50">
+          <div id="statusSpinner" class="w-10 h-10 border-4 border-yellow-400 border-t-transparent rounded-full animate-spin mb-4"></div>
+          <div id="statusIcon" class="text-4xl mb-2 hidden"></div>
+          <h3 id="statusTitle" class="pixel-font text-yellow-400 text-sm mb-2">PROCESSING...</h3>
+          <p id="statusMsg" class="text-xs text-slate-300 leading-relaxed mb-4">Contacting Offshore Swiss Bank server...</p>
+          <button id="statusCloseBtn" class="hidden bg-yellow-400 text-slate-950 font-bold px-5 py-2 rounded-xl text-xs uppercase tracking-wider hover:bg-yellow-300 cursor-pointer">
+            Claim Free Pity Revive!
+          </button>
+        </div>
+
+      </div>
+    </div>
+
+  </div>
+
+  <script>
+   
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    const container = document.getElementById('game-container');
+    const startOverlay = document.getElementById('startOverlay');
+    const payModal = document.getElementById('payModal');
+    const modalBox = document.getElementById('modalBox');
+    const countdownTimer = document.getElementById('countdownTimer');
+    const fakeStatus = document.getElementById('fakeStatus');
+    const statusSpinner = document.getElementById('statusSpinner');
+    const statusIcon = document.getElementById('statusIcon');
+    const statusTitle = document.getElementById('statusTitle');
+    const statusMsg = document.getElementById('statusMsg');
+    const statusCloseBtn = document.getElementById('statusCloseBtn');
+
+    const V_WIDTH = 360;
+    const V_HEIGHT = 600;
+
+    let scale = 1;
+    function resizeCanvas() {
+      const rect = container.getBoundingClientRect();
+      const dpr = window.devicePixelRatio || 1;
+      canvas.width = rect.width * dpr;
+      canvas.height = rect.height * dpr;
+      scale = canvas.width / V_WIDTH;
+      ctx.imageSmoothingEnabled = false;
+    }
+    window.addEventListener('resize', resizeCanvas);
+    resizeCanvas();
+
+    
+    class SoundEngine {
+      constructor() {
+        this.ctx = null;
+        this.enabled = true;
+      }
+      init() {
+        if (!this.ctx) {
+          const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+          if (AudioContextClass) this.ctx = new AudioContextClass();
+        }
+        if (this.ctx && this.ctx.state === 'suspended') {
+          this.ctx.resume();
+        }
+      }
+      playJump() {
+        if (!this.enabled) return;
+        this.init();
+        if (!this.ctx) return;
+        const now = this.ctx.currentTime;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'square';
+        osc.frequency.setValueAtTime(260, now);
+        osc.frequency.exponentialRampToValueAtTime(750, now + 0.12);
+        gain.gain.setValueAtTime(0.18, now);
+        gain.gain.exponentialRampToValueAtTime(0.01, now + 0.12);
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start(now);
+        osc.stop(now + 0.12);
+      }
+      playScore() {
+        if (!this.enabled) return;
+        this.init();
+        if (!this.ctx) return;
+        const now = this.ctx.currentTime;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(587, now);
+        osc.frequency.setValueAtTime(880, now + 0.08);
+        gain.gain.setValueAtTime(0.2, now);
+        gain.gain.exponentialRampToValueAtTime(0.01, now + 0.25);
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start(now);
+        osc.stop(now + 0.25);
+      }
+      playHit() {
+        if (!this.enabled) return;
+        this.init();
+        if (!this.ctx) return;
+        const now = this.ctx.currentTime;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(240, now);
+        osc.frequency.exponentialRampToValueAtTime(40, now + 0.28);
+        gain.gain.setValueAtTime(0.3, now);
+        gain.gain.exponentialRampToValueAtTime(0.01, now + 0.28);
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start(now);
+        osc.stop(now + 0.28);
+      }
+      playCash() {
+        if (!this.enabled) return;
+        this.init();
+        if (!this.ctx) return;
+        const now = this.ctx.currentTime;
+
+        const osc1 = this.ctx.createOscillator();
+        const gain1 = this.ctx.createGain();
+        osc1.type = 'sine';
+        osc1.frequency.setValueAtTime(987.77, now); // B5
+        gain1.gain.setValueAtTime(0.25, now);
+        gain1.gain.exponentialRampToValueAtTime(0.01, now + 0.35);
+        osc1.connect(gain1);
+        gain1.connect(this.ctx.destination);
+        osc1.start(now);
+        osc1.stop(now + 0.35);
+
+        const osc2 = this.ctx.createOscillator();
+        const gain2 = this.ctx.createGain();
+        osc2.type = 'sine';
+        osc2.frequency.setValueAtTime(1318.5, now + 0.08); // E6
+        gain2.gain.setValueAtTime(0.25, now + 0.08);
+        gain2.gain.exponentialRampToValueAtTime(0.01, now + 0.45);
+        osc2.connect(gain2);
+        gain2.connect(this.ctx.destination);
+        osc2.start(now + 0.08);
+        osc2.stop(now + 0.45);
+      }
+      playSadBuzzer() {
+        if (!this.enabled) return;
+        this.init();
+        if (!this.ctx) return;
+        const now = this.ctx.currentTime;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(150, now);
+        osc.frequency.setValueAtTime(120, now + 0.15);
+        osc.frequency.setValueAtTime(90, now + 0.3);
+        gain.gain.setValueAtTime(0.25, now);
+        gain.gain.exponentialRampToValueAtTime(0.01, now + 0.5);
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start(now);
+        osc.stop(now + 0.5);
+      }
+    }
+
+    const sound = new SoundEngine();
+
+    const soundToggleBtn = document.getElementById('soundToggleBtn');
+    const soundIconOn = document.getElementById('soundIconOn');
+    const soundIconOff = document.getElementById('soundIconOff');
+
+    soundToggleBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      sound.enabled = !sound.enabled;
+      if (sound.enabled) {
+        soundIconOn.classList.remove('hidden');
+        soundIconOff.classList.add('hidden');
+      } else {
+        soundIconOn.classList.add('hidden');
+        soundIconOff.classList.remove('hidden');
+      }
+    });
+
+    const GRAVITY = 0.38;
+    const JUMP_FORCE = -7.2;
+    const DIFFICULTIES = {
+      NORMAL: { pipeSpeed: 2.4, spawnInterval: 110, pipeGap: 125, moveAmplitude: 0, moveFrequency: 0 },
+      EASY: { pipeSpeed: 1.8, spawnInterval: 125, pipeGap: 160, moveAmplitude: 0, moveFrequency: 0 },
+      MAX: { pipeSpeed: 2.9, spawnInterval: 58, pipeGap: 76, moveAmplitude: 38, moveFrequency: 0.055 }
+    };
+    const GROUND_HEIGHT = 70;
+
+    let state = 'IDLE';
+    let difficulty = 'NORMAL';
+    let score = 0;
+    let highScore = parseInt(localStorage.getItem('flappy_pay_high') || '0', 10);
+    let frames = 0;
+    let invulnerableTimer = 0;
+
+    const bird = {
+      x: 80,
+      y: V_HEIGHT / 2 - 20,
+      radius: 14,
+      velocity: 0,
+      rotation: 0,
+      wingTimer: 0,
+      reset: function() {
+        this.x = 80;
+        // Game logic uses the virtual canvas coordinates (V_WIDTH × V_HEIGHT).
+        this.y = V_HEIGHT / 2;
+        this.velocity = 0;
+        this.rotation = 0;
+        this.wingTimer = 0;
+      },
+      flap: function() {
+        this.velocity = JUMP_FORCE;
+        sound.playJump();
+      }
+    };
+
+    let pipes = [];
+    let particles = [];
+    let groundOffset = 0;
+    let clouds = [
+      { x: 30, y: 70, speed: 0.3, size: 40 },
+      { x: 190, y: 120, speed: 0.45, size: 60 },
+      { x: 290, y: 50, speed: 0.25, size: 35 }
+    ];
+
+    function createPipe() {
+      const minTop = 60;
+      const settings = DIFFICULTIES[difficulty];
+      const maxTop = V_HEIGHT - GROUND_HEIGHT - settings.pipeGap - 60;
+      const safeMinTop = minTop + settings.moveAmplitude;
+      const safeMaxTop = maxTop - settings.moveAmplitude;
+      const topHeight = Math.floor(Math.random() * (safeMaxTop - safeMinTop + 1)) + safeMinTop;
+      pipes.push({
+        x: V_WIDTH + 10,
+        top: topHeight,
+        baseTop: topHeight,
+        bottom: topHeight + settings.pipeGap,
+        gap: settings.pipeGap,
+        amplitude: settings.moveAmplitude,
+        phase: Math.random() * Math.PI * 2,
+        frequency: settings.moveFrequency,
+        width: 52,
+        passed: false
+      });
+    }
+
+    function addScoreParticles(x, y) {
+      for (let i = 0; i < 12; i++) {
+        particles.push({
+          x: x,
+          y: y,
+          vx: (Math.random() - 0.5) * 6,
+          vy: (Math.random() - 0.5) * 6,
+          life: 25,
+          color: Math.random() > 0.5 ? '#facc15' : '#ffffff'
+        });
+      }
+    }
+
+   
+    function drawSky() {
+      const grad = ctx.createLinearGradient(0, 0, 0, V_HEIGHT - GROUND_HEIGHT);
+      grad.addColorStop(0, '#4fc3f7');
+      grad.addColorStop(0.7, '#81d4fa');
+      grad.addColorStop(1, '#b3e5fc');
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, 0, V_WIDTH, V_HEIGHT - GROUND_HEIGHT);
+
+      ctx.fillStyle = '#80deea';
+      for (let i = 0; i < 7; i++) {
+        const bx = i * 55;
+        const bh = 50 + (i % 3) * 30;
+        ctx.fillRect(bx, V_HEIGHT - GROUND_HEIGHT - bh, 45, bh);
+        ctx.fillStyle = '#e0f7fa';
+        for (let wy = V_HEIGHT - GROUND_HEIGHT - bh + 10; wy < V_HEIGHT - GROUND_HEIGHT - 10; wy += 15) {
+          ctx.fillRect(bx + 8, wy, 8, 8);
+          ctx.fillRect(bx + 26, wy, 8, 8);
+        }
+        ctx.fillStyle = '#80deea';
+      }
+
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.85)';
+      clouds.forEach(c => {
+        ctx.beginPath();
+        ctx.arc(c.x, c.y, c.size * 0.5, 0, Math.PI * 2);
+        ctx.arc(c.x + c.size * 0.35, c.y - 8, c.size * 0.45, 0, Math.PI * 2);
+        ctx.arc(c.x + c.size * 0.7, c.y, c.size * 0.4, 0, Math.PI * 2);
+        ctx.fill();
+        c.x -= c.speed;
+        if (c.x < -c.size * 2) c.x = V_WIDTH + 20;
+      });
+    }
+
+    function drawPipes() {
+      pipes.forEach(p => {
+        drawSinglePipe(p.x, 0, p.width, p.top, true);
+        const bottomHeight = V_HEIGHT - GROUND_HEIGHT - p.bottom;
+        drawSinglePipe(p.x, p.bottom, p.width, bottomHeight, false);
+      });
+    }
+
+    function drawSinglePipe(x, y, width, height, isTop) {
+      if (height <= 0) return;
+      ctx.save();
+
+      const bodyGrad = ctx.createLinearGradient(x, 0, x + width, 0);
+      bodyGrad.addColorStop(0, '#558b2f');
+      bodyGrad.addColorStop(0.2, '#9ccc65');
+      bodyGrad.addColorStop(0.7, '#7cb342');
+      bodyGrad.addColorStop(1, '#33691e');
+      ctx.fillStyle = bodyGrad;
+      ctx.fillRect(x, y, width, height);
+
+      ctx.strokeStyle = '#1b5e20';
+      ctx.lineWidth = 2.5;
+      ctx.strokeRect(x, y, width, height);
+
+      const rimHeight = 22;
+      const rimExtra = 5;
+      const rimY = isTop ? (y + height - rimHeight) : y;
+      const rimX = x - rimExtra;
+      const rimWidth = width + (rimExtra * 2);
+
+      const rimGrad = ctx.createLinearGradient(rimX, 0, rimX + rimWidth, 0);
+      rimGrad.addColorStop(0, '#558b2f');
+      rimGrad.addColorStop(0.25, '#c5e1a5');
+      rimGrad.addColorStop(0.65, '#8bc34a');
+      rimGrad.addColorStop(1, '#2e7d32');
+      ctx.fillStyle = rimGrad;
+      ctx.fillRect(rimX, rimY, rimWidth, rimHeight);
+      ctx.strokeRect(rimX, rimY, rimWidth, rimHeight);
+
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.35)';
+      ctx.fillRect(x + 5, y, 4, height);
+
+      ctx.restore();
+    }
+
+    function drawGround() {
+      const gy = V_HEIGHT - GROUND_HEIGHT;
+
+      ctx.fillStyle = '#ded895';
+      ctx.fillRect(0, gy, V_WIDTH, GROUND_HEIGHT);
+
+      ctx.fillStyle = '#73bf2e';
+      ctx.fillRect(0, gy, V_WIDTH, 14);
+
+      ctx.fillStyle = '#4f851b';
+      ctx.fillRect(0, gy + 14, V_WIDTH, 4);
+
+      ctx.strokeStyle = '#cbb868';
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      for (let x = -30 + (groundOffset % 24); x < V_WIDTH + 30; x += 22) {
+        ctx.moveTo(x, gy + 18);
+        ctx.lineTo(x - 14, V_HEIGHT);
+      }
+      ctx.stroke();
+
+      ctx.strokeStyle = '#2f4f1f';
+      ctx.lineWidth = 2.5;
+      ctx.beginPath();
+      ctx.moveTo(0, gy);
+      ctx.lineTo(V_WIDTH, gy);
+      ctx.stroke();
+    }
+
+    function drawBird() {
+      ctx.save();
+      ctx.translate(bird.x, bird.y);
+      ctx.rotate(bird.rotation);
+
+      if (invulnerableTimer > 0) {
+        ctx.save();
+        ctx.strokeStyle = '#facc15';
+        ctx.lineWidth = 3;
+        ctx.shadowColor = '#eab308';
+        ctx.shadowBlur = 15;
+        ctx.beginPath();
+        ctx.arc(0, 0, bird.radius + 10, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.fillStyle = 'rgba(250, 204, 21, 0.2)';
+        ctx.fill();
+        ctx.restore();
+      }
+
+      ctx.fillStyle = '#facc15'; 
+      ctx.beginPath();
+      ctx.arc(0, 0, bird.radius, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.lineWidth = 2.5;
+      ctx.strokeStyle = '#000';
+      ctx.stroke();
+
+      ctx.fillStyle = '#fde047';
+      ctx.beginPath();
+      ctx.arc(2, 3, bird.radius - 5, 0, Math.PI * 2);
+      ctx.fill();
+
+      const flapOffset = Math.sin(bird.wingTimer) * 5;
+      ctx.fillStyle = '#ffffff';
+      ctx.beginPath();
+      ctx.ellipse(-5, 2 + flapOffset * 0.4, 7, 5, 0.2, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+
+      ctx.fillStyle = '#ffffff';
+      ctx.beginPath();
+      ctx.arc(6, -5, 5.5, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+
+      ctx.fillStyle = '#000000';
+      ctx.beginPath();
+      ctx.arc(8, -5, 2.5, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.fillStyle = '#ea580c';
+      ctx.beginPath();
+      ctx.moveTo(8, -1);
+      ctx.lineTo(19, 3);
+      ctx.lineTo(8, 7);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+
+      ctx.fillStyle = 'rgba(239, 68, 68, 0.5)';
+      ctx.beginPath();
+      ctx.arc(3, 4, 3, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.restore();
+    }
+
+    function drawScore() {
+      ctx.save();
+      ctx.fillStyle = '#ffffff';
+      ctx.strokeStyle = '#000000';
+      ctx.lineWidth = 4;
+      ctx.font = '24px "Press Start 2P", monospace';
+      ctx.textAlign = 'center';
+
+      const scoreText = score.toString();
+      ctx.strokeText(scoreText, V_WIDTH / 2, 70);
+      ctx.fillText(scoreText, V_WIDTH / 2, 70);
+
+      ctx.font = '10px "Press Start 2P", monospace';
+      ctx.fillStyle = '#fde047';
+      ctx.lineWidth = 2;
+      ctx.strokeText('BEST: ' + highScore, V_WIDTH / 2, 95);
+      ctx.fillText('BEST: ' + highScore, V_WIDTH / 2, 95);
+      ctx.restore();
+    }
+
+    function drawParticles() {
+      for (let i = particles.length - 1; i >= 0; i--) {
+        const p = particles[i];
+        p.x += p.vx;
+        p.y += p.vy;
+        p.life--;
+        ctx.fillStyle = p.color;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, 3, 0, Math.PI * 2);
+        ctx.fill();
+        if (p.life <= 0) particles.splice(i, 1);
+      }
+    }
+
+  
+    function update() {
+      frames++;
+
+      if (state === 'IDLE') {
+        bird.y = V_HEIGHT / 2 + Math.sin(frames * 0.08) * 8;
+        bird.wingTimer += 0.15;
+        bird.rotation = 0;
+        groundOffset -= 1.5;
+        return;
+      }
+
+      if (state === 'PLAYING') {
+        const settings = DIFFICULTIES[difficulty];
+        groundOffset -= settings.pipeSpeed;
+        bird.wingTimer += 0.2;
+
+        bird.velocity += GRAVITY;
+        bird.y += bird.velocity;
+
+        if (bird.velocity < 0) {
+          bird.rotation = -0.38;
+        } else {
+          bird.rotation += 0.04; 
+          if (bird.rotation > 1.2) bird.rotation = 1.2;
+        }
+
+        if (frames % settings.spawnInterval === 0) {
+          createPipe();
+        }
+
+        if (invulnerableTimer > 0) invulnerableTimer--;
+
+        for (let i = pipes.length - 1; i >= 0; i--) {
+          const p = pipes[i];
+          p.x -= settings.pipeSpeed;
+          if (p.amplitude > 0) {
+            p.top = p.baseTop + Math.sin(frames * p.frequency + p.phase) * p.amplitude;
+            p.bottom = p.top + p.gap;
+          }
+
+
+          if (!p.passed && p.x + p.width < bird.x) {
+            p.passed = true;
+            score++;
+            sound.playScore();
+            addScoreParticles(bird.x + 20, bird.y);
+            if (score > highScore) {
+              highScore = score;
+              localStorage.setItem('flappy_pay_high', highScore);
+            }
+          }
+
+          if (invulnerableTimer <= 0) {
+            const inPipeX = (bird.x + bird.radius > p.x) && (bird.x - bird.radius < p.x + p.width);
+            const inPipeY = (bird.y - bird.radius < p.top) || (bird.y + bird.radius > p.bottom);
+
+            if (inPipeX && inPipeY) {
+              triggerPaywall();
+              return;
+            }
+          }
+
+          if (p.x + p.width < -20) {
+            pipes.splice(i, 1);
+          }
+        }
+
+        if (bird.y + bird.radius >= V_HEIGHT - GROUND_HEIGHT) {
+          bird.y = V_HEIGHT - GROUND_HEIGHT - bird.radius;
+          triggerPaywall();
+          return;
+        }
+
+        if (bird.y - bird.radius <= 0) {
+          bird.y = bird.radius;
+          bird.velocity = 0;
+        }
+      }
+    }
+
+    function render() {
+      ctx.save();
+      ctx.scale(scale, scale);
+
+      drawSky();
+      drawPipes();
+      drawGround();
+      drawParticles();
+      drawBird();
+
+      if (state === 'PLAYING') {
+        drawScore();
+      }
+
+      ctx.restore();
+    }
+
+    function gameLoop() {
+      update();
+      render();
+      requestAnimationFrame(gameLoop);
+    }
+
+    let gameLoopStarted = false;
+    function ensureGameLoop() {
+      if (gameLoopStarted) return;
+      gameLoopStarted = true;
+      gameLoop();
+    }
+
+   
+    let countdownSecs = 59;
+    let countdownInterval = null;
+    let pendingStatusTimeouts = [];
+
+    function triggerPaywall() {
+      state = 'DEAD_PAYWALL';
+      sound.playHit();
+
+      modalBox.classList.add('shake-anim');
+      setTimeout(() => modalBox.classList.remove('shake-anim'), 450);
+
+      payModal.classList.remove('hidden');
+
+      countdownSecs = 59;
+      clearInterval(countdownInterval);
+      countdownInterval = null;
+      if (countdownTimer) {
+        countdownTimer.innerText = '00:59';
+        countdownInterval = setInterval(() => {
+          countdownSecs--;
+          if (countdownSecs < 0) countdownSecs = 59;
+          const secStr = countdownSecs < 10 ? '0' + countdownSecs : countdownSecs;
+          countdownTimer.innerText = `00:${secStr}`;
+        }, 1000);
+      }
+    }
+
+    function handleFlapInput() {
+      if (state === 'IDLE') {
+        state = 'PLAYING';
+        startOverlay.classList.add('hidden');
+        bird.flap();
+      } else if (state === 'PLAYING') {
+        bird.flap();
+      }
+    }
+
+    window.addEventListener('keydown', (e) => {
+      if (e.code === 'Space') {
+        e.preventDefault();
+        handleFlapInput();
+      }
+    });
+
+    canvas.addEventListener('pointerdown', (e) => {
+      e.preventDefault();
+      handleFlapInput();
+    });
+
+   
+    const btnPayCard = document.getElementById('btnPayCard');
+    const btnPayBtc = document.getElementById('btnPayBtc');
+    const btnPayBanana = document.getElementById('btnPayBanana');
+    const btnRestartCoward = document.getElementById('btnRestartCoward');
+    const startTitle = document.getElementById('startTitle');
+    const startHint = document.getElementById('startHint');
+
+    function resetGame(nextDifficulty = 'MAX') {
+      clearInterval(countdownInterval);
+      countdownInterval = null;
+      pendingStatusTimeouts.forEach(timeoutId => clearTimeout(timeoutId));
+      pendingStatusTimeouts = [];
+
+      score = 0;
+      frames = 0;
+      invulnerableTimer = 0;
+      groundOffset = 0;
+      difficulty = nextDifficulty;
+      pipes = [];
+      particles = [];
+      bird.reset();
+      state = 'IDLE';
+
+      payModal.classList.add('hidden');
+      fakeStatus.classList.add('hidden');
+      modalBox.classList.remove('shake-anim');
+      startOverlay.classList.remove('hidden');
+      if (nextDifficulty === 'MAX') {
+        startTitle.textContent = 'MAXIMUM DIFFICULTY';
+        startHint.textContent = 'Tiny gaps · rapid pipes · moving obstacles';
+      } else {
+        startTitle.textContent = 'FLAPPY Bird: Let money talk';
+        startHint.textContent = "Don't hit the pipes!";
+      }
+
+      // The loop normally runs continuously; this al so starts it if reset is
+      // triggered before the page's load event.
+      ensureGameLoop();
+    }
+
+    function scheduleStatus(callback, delay) {
+      const timeoutId = setTimeout(() => {
+        pendingStatusTimeouts = pendingStatusTimeouts.filter(id => id !== timeoutId);
+        callback();
+      }, delay);
+      pendingStatusTimeouts.push(timeoutId);
+    }
+
+    function showStatusStep(title, msg, showSpinner = true, icon = '', showBtn = false, btnText = 'Claim') {
+      fakeStatus.classList.remove('hidden');
+      statusTitle.innerText = title;
+      statusMsg.innerHTML = msg;
+
+      if (showSpinner) {
+        statusSpinner.classList.remove('hidden');
+        statusIcon.classList.add('hidden');
+      } else {
+        statusSpinner.classList.add('hidden');
+        statusIcon.classList.remove('hidden');
+        statusIcon.innerText = icon;
+      }
+
+      if (showBtn) {
+        statusCloseBtn.classList.remove('hidden');
+        statusCloseBtn.innerText = btnText;
+      } else {
+        statusCloseBtn.classList.add('hidden');
+      }
+    }
+
+    btnPayCard.addEventListener('click', () => {
+      sound.playCash();
+      showStatusStep('CONNECTING...', 'Processing transaction of <b>$999.00 USD</b> via Swiss Bank vault...');
+
+      scheduleStatus(() => {
+        showStatusStep(
+          'CARD DECLINED! ',
+          'Error 402: Insufficient Funds!<br><br><span class="text-amber-400 font-semibold">"Bro really thought he had $999 to spend on Flappy Bird "</span><br><br>The developer felt pity and granted you a free 1-time Revive!',
+          false,
+          '❌',
+          true,
+          'Accept Pity Revive'
+        );
+      }, 1800);
+    });
+
+    btnPayBtc.addEventListener('click', () => {
+      sound.playCash();
+      showStatusStep('BLOCKCHAIN SYNC...', 'Mining 0.015 BTC transaction onto the meme chain...');
+
+      scheduleStatus(() => {
+        showStatusStep(
+          'GAS FEE: $8,420 USD',
+          'Transaction failed: Ethereum gas fee is higher than the payment itself!<br><br>Dev pity activated.',
+          false,
+          '📉',
+          true,
+          'Revive Anyway'
+        );
+      }, 1500);
+    });
+
+    btnPayBanana.addEventListener('click', () => {
+      sound.playCash();
+      showStatusStep('INSPECTING BANANA...', 'Dev monkeys are currently verifying potassium levels...');
+
+      scheduleStatus(() => {
+        showStatusStep(
+          'DEAL ACCEPTED! 🍌',
+          'The developer loves bananas. Revive pass granted in exchange for 1 digital fruit!',
+          false,
+          '🐒',
+          true,
+          'Enjoy Banana Revive'
+        );
+      }, 1400);
+    });
+
+    statusCloseBtn.addEventListener('click', () => {
+      fakeStatus.classList.add('hidden');
+      payModal.classList.add('hidden');
+      clearInterval(countdownInterval);
+      countdownInterval = null;
+
+      // All accepted revive options continue the run with easier obstacles.
+      difficulty = 'EASY';
+      pipes = [];
+      frames = 0;
+      state = 'PLAYING';
+      bird.velocity = -4.5;
+      bird.y = Math.max(100, bird.y - 40);
+      invulnerableTimer = 150;
+      sound.playJump();
+    });
+
+    btnRestartCoward.addEventListener('click', () => {
+      sound.playSadBuzzer();
+      resetGame('MAX');
+    });
+
+    window.addEventListener('load', ensureGameLoop, { once: true });
+  </script>
+</body>
+</html>
